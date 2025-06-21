@@ -57,3 +57,7 @@ reports
 # Vscode settings
 #####################################
 .vscode/
+#####################################
+# Se ignoran artefactos .pkl
+#####################################
+challenge/*.pkl
