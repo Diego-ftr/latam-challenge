@@ -11,7 +11,8 @@ ENV/
 #####################################
 pasos.md
 todo.md
-
+notas.md
+debug.md
 #####################################
 # Archivos temporales / cache
 #####################################
@@ -43,3 +44,16 @@ Thumbs.db
 # Carpeta Sandbox
 #####################################
 sandbox/
+
+#####################################
+# Python testing / coverage / reports
+#####################################
+.coverage
+.coverage.*
+.pytest_cache/
+.reports/
+reports
+#####################################
+# Vscode settings
+#####################################
+.vscode/
