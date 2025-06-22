@@ -1,4 +1,8 @@
 locust~=1.6
+Flask==1.1.2
+Werkzeug==1.0.1
+Jinja2==2.11.3
+MarkupSafe==1.1.1
 coverage~=5.5
 pytest~=6.2.5
 pytest-cov~=2.12.1
