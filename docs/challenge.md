@@ -207,129 +207,105 @@ Tests verificados:
 
 ## 3.1 Configuración de Google Cloud Platform
 
-### Service Account Configuration
-- **Email**: latam-challenge-diegoftr@plenary-justice-357523.iam.gserviceaccount.com
-- **Permisos configurados**:
-  - Administrador de Cloud Run
-  - Editor de Cloud Build
-  - Lector de Artifact Registry
-  - Visualizador de objetos de Storage
-  - Service Account User
+### Service Account
+- **Email**: latam-challenge-diegoftr@plenary-justice-357523.iam.gserviceaccount.com  
+- **Permisos**  
+  - Cloud Run Admin  
+  - Cloud Build Editor  
+  - Artifact Registry Reader  
+  - Storage Object Viewer  
+  - Service Account User  
 
-### GitHub Secrets Configurados
-- `GCP_SERVICE_ACCOUNT_KEY`: Clave JSON de la service account
-- `GCP_PROJECT_ID`: plenary-justice-357523
-- `GCP_REGION`: us-central1
-
-## 3.2 Containerización con Docker
-
-### Multi-Stage Dockerfile Optimizado
-
-Se implementó un Dockerfile multi-stage para optimizar el tamaño de la imagen y el tiempo de despliegue:
-
-**Stage 1 (Builder)**:
-- Instalación de dependencias de compilación
-- Entrenamiento del modelo en build time
-- Generación de model.pkl
-
-**Stage 2 (Runtime)**:
-- Imagen base mínima
-- Solo dependencias de runtime
-- Copia del modelo pre-entrenado
-- Configuración para Cloud Run (puerto 8080)
-
-**Beneficios**:
-- Imagen final más pequeña (sin data.csv ni toolchain)
-- Arranque más rápido (modelo pre-entrenado)
-- Mejor performance en Cold Start de Cloud Run
-
-## 3.3 Configuración de Cloud Run
-
-### Especificaciones del Servicio
-- **Nombre**: latam-challenge
-- **Puerto**: 8080
-- **Memoria**: 1Gi
-- **CPU**: 1
-- **Max instances**: 10
-- **Min instances**: 0 (auto-scaling completo)
-- **Concurrency**: 80
-- **Acceso**: Público (allow-unauthenticated)
-
-### Artifact Registry
-Se configuró Artifact Registry en lugar de Container Registry (deprecado):
-- Repository: `latam-challenge-repo`
-- Formato: Docker
-- Ubicación: Regional según GCP_REGION
-
-## 3.4 Deployment Status
-
-**Estado actual**: Configuración completa, pendiente de deployment
-- ✅ Dockerfile multi-stage optimizado
-- ✅ Service Account configurada
-- ✅ Secrets de GitHub establecidos
-- ✅ Workflows de CI/CD preparados
-- 🔄 Pendiente: Push a main para activar deployment automático
+### GitHub Secrets
+| Secret | Valor |
+|--------|-------|
+| `GCP_SERVICE_ACCOUNT_KEY` | JSON de la service account |
+| `GCP_PROJECT_ID` | `plenary-justice-357523` |
+| `GCP_REGION` | `us-central1` |
 
 ---
 
-# PARTE IV: CI/CD Implementation
+## 3.2 Containerización con Docker (multi-stage)
 
-## 4.1 Pipeline de Integración Continua (ci.yml)
+| Stage | Contenido | Propósito |
+|-------|-----------|-----------|
+| **Builder** | Dependencias de compilación + `data/` | Entrena el modelo y genera `model.pkl`. |
+| **Runtime** | Imagen slim + solo libs de producción | Copia `model.pkl` y expone la API en el puerto 8080. |
 
-### Configuración del Workflow CI
-- **Triggers**: Push a main/develop/feature/* y Pull Requests
-- **Runner**: ubuntu-latest
-- **Python**: 3.10
+**Ventajas**  
+- Imagen final ligera (≈ 240 MB).  
+- Cold-start más rápido en Cloud Run.
 
-### Pipeline Steps
-1. **Checkout**: Obtener código fuente
-2. **Setup Python**: Configurar entorno Python 3.10
-3. **Install Dependencies**: Solo requirements.txt + requirements-test.txt (optimizado)
-4. **Run Model Tests**: `make model-test`
-5. **Run API Tests**: `make api-test`
-6. **Upload Coverage**: Subir reportes a Codecov
+---
 
-### Optimizaciones Implementadas
-- Removido `requirements-dev.txt` para acelerar builds
-- Solo dependencias esenciales para testing
-- Cache de dependencias implícito en GitHub Actions
+## 3.3 Cloud Run
 
-## 4.2 Pipeline de Entrega Continua (cd.yml)
+| Parámetro | Valor |
+|-----------|-------|
+| **Servicio** | `latam-challenge` |
+| Región | `us-central1` |
+| URL Pública | **https://latam-challenge-630883832403.us-central1.run.app** |
+| CPU / Mem | 1 vCPU · 1 GiB |
+| Autoscaling | 0 – 10 instancias |
+| Concurrency | 80 |
+| Auth | `--allow-unauthenticated` |
 
-### Configuración del Workflow CD
-- **Trigger**: Push a main branch únicamente
-- **Runner**: ubuntu-latest
-- **Target**: Google Cloud Run
+Las imágenes se almacenan en **Artifact Registry**  
+`us-central1-docker.pkg.dev/plenary-justice-357523/latam-challenge-repo/delay-api:<sha>`.
 
-### Pipeline Steps
-1. **Checkout**: Obtener código fuente
-2. **Setup Cloud SDK**: Autenticación con GCP usando service account
-3. **Configure Artifact Registry**: Setup para docker push
-4. **Build & Push Image**: 
-   - Build multi-stage Docker image
-   - Push a Artifact Registry
-   - Tag con SHA del commit
-5. **Deploy to Cloud Run**:
-   - Deploy automático con configuración optimizada
-   - Rolling updates sin downtime
+---
 
-### Mejoras Técnicas
-- **Artifact Registry** en lugar de Container Registry deprecado
-- **Multi-stage builds** para imágenes optimizadas
-- **Configuración automática** de Docker auth para Artifact Registry
-- **Tagging con SHA** para tracking de versiones
+## 3.4 Estado de Deployment
 
-## 4.3 Workflow Security & Best Practices
+- ✅ Dockerfile multi-stage listo  
+- ✅ Workflows CI/CD en producción  
+- ✅ Push a `main` despliega automáticamente (Cloud Run revision `latam-challenge-00001-85j`)  
+- ✅ Servicio operativo en la URL indicada
 
-### Security Measures
-- Service Account con permisos mínimos necesarios
-- Secrets almacenados en GitHub Secrets (no hardcoded)
-- Autenticación con JSON key temporal
+### Stress-test
 
-### Best Practices Implementadas
-- Workflows separados para CI y CD
-- CD solo en main branch (production)
-- Tests obligatorios antes de deployment
-- Rollback automático en caso de fallo
-- Logging completo para debugging
+`make stress-test` · Locust 1.6 · 100 users · 60 s
 
+| Métrica | Valor |
+|---------|-------|
+| Peticiones | **5 287** |
+| Errores | **0** |
+| Throughput medio | **88.5 req/s** |
+| Latencia media | **338 ms** |
+| p95 | **670 ms** |
+| p99 | **750 ms** |
+
+> El servicio sostuvo ~90 req/s sin errores. Con 2 vCPU o `min-instances=1` podría bajarse el p95, pero dentro de los objetivos del reto el rendimiento es adecuado.
+
+---
+
+# PARTE IV: CI/CD
+
+## 4.1 Integración Continua (`ci.yml`)
+
+- **Triggers**: pushes a `main`, `develop`, `feature/*` y PRs.  
+- **Pasos clave**  
+  1. Checkout  
+  2. Python 3.10  
+  3. Instalación de `requirements.txt` + `requirements-test.txt`  
+     - *Hotfix*: `itsdangerous==1.1.0` fijado para compatibilidad con Locust  
+  4. `make model-test` y `make api-test`  
+  5. Subida de cobertura a Codecov  
+
+## 4.2 Entrega Continua (`cd.yml`)
+
+1. **Auth** con `google-github-actions/auth@v1`.  
+2. `setup-gcloud@v1` (proyecto y CLI).  
+3. `gcloud auth configure-docker us-central1-docker.pkg.dev`.  
+4. Build & push de la imagen multi-stage etiquetada con `github.sha`.  
+5. `gcloud run deploy latam-challenge …` (rolling update sin downtime).
+
+## 4.3 Buenas prácticas
+
+- Service Account con principio de mínimo privilegio.  
+- Secrets en GitHub Secrets, nunca hard-coded.  
+- Workflows separados (CI - pruebas / CD - despliegue).  
+- CD sólo en `main` → evita despliegues accidentales.  
+- Rollback automático si el deploy falla.
+
+---
