@@ -281,3 +281,86 @@ Basado en el análisis, las 10 features más relevantes son:
 - **Umbral configurable**: El umbral de 15 minutos ahora es una variable de clase modificable
 - **Manejo robusto de excepciones**: Captura excepciones específicas y registra warnings
 - **Documentación en español**: Toda la documentación y comentarios en español para consistencia
+
+## PARTE 6: Implementación de API con FastAPI
+
+### 6.1 Desarrollo del Endpoint /predict
+
+Implementamos una API REST usando FastAPI que expone el modelo de predicción de retrasos como servicio web.
+
+#### Estructura del Endpoint
+
+**URL**: `POST /predict`
+
+**Input**:
+```json
+{
+  "flights": [
+    {
+      "OPERA": "Aerolineas Argentinas",
+      "TIPOVUELO": "N",
+      "MES": 3
+    }
+  ]
+}
+```
+
+**Output**:
+```json
+{
+  "predict": [0]
+}
+```
+
+#### 6.2 Validación de Datos con Pydantic
+
+Usamos Pydantic para validar automáticamente los datos de entrada:
+
+1. **MES**: Debe estar entre 1 y 12
+2. **TIPOVUELO**: Debe ser 'N' (Nacional) o 'I' (Internacional)
+3. **OPERA**: Debe ser una aerolínea válida de la lista predefinida
+
+#### 6.3 Problemas Identificados y Solucionados
+
+##### 6.3.1 Incompatibilidad de Versiones - anyio ✅ RESUELTO
+- **Problema**: Error `AttributeError: module 'anyio' has no attribute 'start_blocking_portal'`
+- **Causa**: Conflicto de versiones entre FastAPI/Starlette y anyio>=4.0
+- **Solución**: Fijar `anyio>=3.7,<4` en requirements-test.txt
+- **Resultado**: Los tests de API ahora ejecutan correctamente
+
+##### 6.3.2 Códigos de Error HTTP ✅ RESUELTO
+- **Problema**: Pydantic devuelve 422 por defecto para errores de validación, pero los tests esperan 400
+- **Solución**: Implementar custom exception handler para cambiar 422 a 400
+- **Resultado**: Los tests de validación ahora pasan correctamente
+
+#### 6.4 Arquitectura de la API
+
+1. **Inicialización del Modelo**: El modelo se carga una vez al arrancar la aplicación
+2. **Preprocesamiento**: Se agregan fechas dummy para compatibilidad con el modelo
+3. **Predicción**: Se usa el modelo entrenado para generar predicciones
+4. **Manejo de Errores**: 
+   - 400: Errores de validación de datos
+   - 500: Errores internos del servidor
+5. **Logging**: Registro de eventos para debugging y monitoreo
+
+### 6.5 Resultados de Tests de API ✅
+
+**Estado**: 4 passed en 6.21s
+- **Coverage Total**: 77% (172 statements, 40 missed)
+- **Coverage API**: 88% (60 statements, 7 missed)
+- **Coverage Model**: 70% (110 statements, 33 missed)
+
+Los tests verifican:
+- ✅ Predicción exitosa con datos válidos (`test_should_get_predict`)
+- ✅ Validación de MES fuera de rango >12 (`test_should_failed_unkown_column_1`)
+- ✅ Validación de TIPOVUELO inválido (`test_should_failed_unkown_column_2`)
+- ✅ Validación de OPERA no reconocida (`test_should_failed_unkown_column_3`)
+
+### 6.6 Mejoras de Coverage vs Intento Anterior
+
+| Métrica | Antes | Ahora | Mejora |
+|---------|-------|-------|---------|
+| Tests API | 0/4 ❌ | 4/4 ✅ | +100% |
+| Coverage API | 49% | 88% | +39% |
+| Coverage Model | 25% | 70% | +45% |
+| Coverage Total | 34% | 77% | +43% |
