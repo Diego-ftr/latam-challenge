@@ -7,31 +7,42 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
+    # 1) Checkout
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    # 2) Authenticate to Google Cloud
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+    # 3) Install the gcloud CLI
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       with:
-        service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         project_id: ${{ secrets.GCP_PROJECT_ID }}
-        
+
+    # 4) Configure Docker for Artifact Registry
     - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
-      
+      run: |
+        gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev
+
+    # 5) Build & push image
     - name: Build and push Docker image
       run: |
         docker build -t ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-challenge-repo/delay-api:${{ github.sha }} .
-        docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-challenge-repo/delay-api:${{ github.sha }}
-        
+        docker push  ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-challenge-repo/delay-api:${{ github.sha }}
+
+    # 6) Deploy to Cloud Run
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy latam-challenge \
           --image ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/latam-challenge-repo/delay-api:${{ github.sha }} \
           --platform managed \
-          --region ${{ secrets.GCP_REGION }} \
+          --region  ${{ secrets.GCP_REGION }} \
           --allow-unauthenticated \
           --port 8080 \
           --memory 1Gi \
